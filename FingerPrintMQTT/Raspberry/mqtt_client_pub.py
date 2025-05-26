@@ -56,6 +56,10 @@ client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(broker_address, 1883, 60)
+if client.connect(broker_address, 1883, 60) == 0:
+    print("[INFO] Conectado exitosamente al broker MQTT")
+else:
+    print("[ERROR] Falló la conexión al broker")
 client.loop_start()
 
 # Bucle principal
