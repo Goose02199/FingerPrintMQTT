@@ -1,0 +1,102 @@
+# app.py (Backend Python)
+from flask import Flask, render_template, request, jsonify, Response
+import paho.mqtt.client as mqtt
+import threading
+import time
+import queue
+import json
+app = Flask(__name__)
+
+# Configuración MQTT
+MQTT_BROKER = "54.163.148.181"
+MQTT_PORT = 1883
+TOPIC_SUB = "esp32/to/server/actions"
+TOPIC_PUB = "server/to/esp32"
+
+# Estado global
+current_status = {
+    'state': 'waiting',
+    'id': None,
+    'confidence': None
+}
+
+# Configuración MQTT
+def on_connect(client, userdata, flags, rc):
+    print("Conectado al broker MQTT")
+    client.subscribe(TOPIC_SUB)
+
+def on_message(client, userdata, msg):
+    payload = msg.payload.decode()
+    print("Mensaje MQTT recibido:", payload)
+    
+    if "ID detectado" in payload:
+        parts = payload.split(":")
+        fid = parts[1].strip()
+        current_status['state'] = 'approved'
+        current_status['id'] = fid
+    else:
+        current_status['state'] = 'rejected'
+    
+    # Notificar a los clientes SSE
+    send_event(current_status)
+
+# Cliente MQTT
+mqtt_client = mqtt.Client()
+mqtt_client.on_connect = on_connect
+mqtt_client.on_message = on_message
+
+# Eventos SSE
+clients = []
+
+def send_event(data):
+    for client in clients:
+        client.put(data)
+
+# Hilo MQTT
+def mqtt_thread():
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+    mqtt_client.loop_forever()
+
+# Rutas Flask
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/status')
+def get_status():
+    return jsonify(current_status)
+
+@app.route('/stream')
+def stream():
+    def event_stream():
+        client = queue.Queue(maxsize=5)
+        clients.append(client)
+        try:
+            while True:
+                data = client.get()
+                yield f"data: {json.dumps(data)}\n\n"
+        finally:
+            clients.remove(client)
+    return Response(event_stream(), mimetype="text/event-stream")
+
+@app.route('/register', methods=['POST'])
+def register():
+    fid = request.form.get('id')
+    if fid and fid.isdigit():
+        mqtt_client.publish(TOPIC_PUB, f"C{fid.zfill(3)}")
+        return jsonify(success=True, message="Comando de registro enviado")
+    return jsonify(success=False, message="ID inválido")
+
+@app.route('/delete', methods=['POST'])
+def delete():
+    fid = request.form.get('id')
+    if fid and fid.isdigit():
+        mqtt_client.publish(TOPIC_PUB, f"D{fid.zfill(3)}")
+        return jsonify(success=True, message="Comando de eliminación enviado")
+    return jsonify(success=False, message="ID inválido")
+
+if __name__ == '__main__':
+    mqtt_thread = threading.Thread(target=mqtt_thread)
+    mqtt_thread.daemon = True
+    mqtt_thread.start()
+    app.run(host='0.0.0.0', port=5000, debug=True)
