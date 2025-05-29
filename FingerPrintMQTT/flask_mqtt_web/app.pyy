@@ -8,7 +8,7 @@ import json
 app = Flask(__name__)
 
 # Configuración MQTT
-MQTT_BROKER = "18.235.144.20"
+MQTT_BROKER = "13.220.164.165"
 MQTT_PORT = 1883
 TOPIC_SUB = "esp32/to/server/actions"
 TOPIC_PUB = "server/to/esp32"
