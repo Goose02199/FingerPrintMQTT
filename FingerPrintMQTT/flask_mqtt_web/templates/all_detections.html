@@ -1,0 +1,28 @@
+<div class="container py-5">
+    <h1 class="text-center mb-5">Todas las Detecciones</h1>
+
+    <!-- Formulario para filtrar por ID -->
+    <form method="GET" action="/all_detections">
+        <div class="input-group mb-3">
+            <input type="number" name="id" class="form-control" placeholder="Filtrar por ID de huella" min="1" max="127">
+            <button class="btn btn-primary" type="submit">Filtrar</button>
+        </div>
+    </form>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th scope="col">ID de Huella</th>
+                <th scope="col">Fecha de Detección</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for deteccion in detecciones %}
+                <tr>
+                    <td>{{ deteccion.huella_id }}</td>
+                    <td>{{ deteccion.fecha }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
